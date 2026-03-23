@@ -4,11 +4,15 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import pytest
+from ingestion import producer
 
 
-def setup_function():
-    # Drain queue before each test
-    from ingestion import producer
+@pytest.fixture(autouse=True)
+def drain_queue():
+    """Drain the in-process queue before and after every test."""
+    while producer.get_event() is not None:
+        pass
+    yield
     while producer.get_event() is not None:
         pass
 
