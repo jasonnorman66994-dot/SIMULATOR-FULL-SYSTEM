@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+  # -------------------------------------------------------------------------
+  # Optional: real Kafka cluster for production-grade event pipeline
+  # Remove (or comment out) zookeeper + kafka when running in demo/standalone
+  # mode (in-process queue is used automatically when KAFKA_BOOTSTRAP_SERVERS
+  # is not set).
+  # -------------------------------------------------------------------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181:2181"
+    profiles: ["kafka"]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+    profiles: ["kafka"]
+
+  # -------------------------------------------------------------------------
+  # Backend – FastAPI + uvicorn
+  # -------------------------------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      SIMULATION_MODE: "true"
+      KAFKA_BOOTSTRAP_SERVERS: ""   # set to kafka:9092 to use Kafka profile
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+
+  # -------------------------------------------------------------------------
+  # Frontend – React (development server)
+  # -------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
